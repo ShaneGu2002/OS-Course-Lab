@@ -23,7 +23,7 @@
 BEGIN_FUNC(_start)
 	mrs	x8, mpidr_el1
 	and	x8, x8,	#0xFF
-	cbz	x8, primary
+	cbz	x8, primary 	//if x8==0 goto primary
 
 	/* Wait for bss clear */
 wait_for_bss_clear:
@@ -46,7 +46,7 @@ wait_for_bss_clear:
 	mul	x1, x8, x1
 	adr 	x0, boot_cpu_stack
 	add	x0, x0, x1
-	add	x0, x0, #INIT_STACK_SIZE
+	add	x0, x0, #INIT_STACK_SIZE //stack grows downwards
 	mov	sp, x0
 
 wait_until_smp_enabled:

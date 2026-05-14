@@ -70,6 +70,7 @@
 BEGIN_FUNC(arm64_elX_to_el1)
 	/* LAB 1 TODO 1 BEGIN */
 	/* BLANK BEGIN */
+	mrs x9, CurrentEL
 	/* BLANK END */
 	/* LAB 1 TODO 1 END */
 
@@ -89,6 +90,10 @@ BEGIN_FUNC(arm64_elX_to_el1)
 	// Set the return address and exception level.
 	/* LAB 1 TODO 2 BEGIN */
 	/* BLANK BEGIN */
+	adr x9, .Ltarget
+	msr elr_el3, x9
+	mov x9, SPSR_ELX_DAIF | SPSR_ELX_EL1H
+	msr spsr_el3, x9
 	/* BLANK END */
 	/* LAB 1 TODO 2 END */
 
@@ -156,6 +161,7 @@ BEGIN_FUNC(invalidate_cache_all)
 	and     w1, w1, #0x7
 	cmp     w1, #2
 	b.lt    .Lskip_inv_cache        // no data or unified cache at this level
+	
 	msr     csselr_el1, x10         // select this cache level
 	isb                             // synchronize change to csselr
 	mrs     x1, ccsidr_el1          // w1 = ccsidr
@@ -241,15 +247,15 @@ BEGIN_FUNC(el1_mmu_activate)
 	bl	invalidate_cache_all
 
 	/* Invalidate TLB */
-	tlbi    vmalle1is
+	tlbi    vmalle1is  //TLB invalidate, VM all el1 inner shareable
 	isb
-	dsb     sy
+	dsb     sy  //synchroniza
 
 	/* Initialize Memory Attribute Indirection Register */
 	ldr 	x8, =MMU_MAIR_ATTR0 | MMU_MAIR_ATTR1 | MMU_MAIR_ATTR2 | MMU_MAIR_ATTR3 | MMU_MAIR_ATTR4
 	msr     mair_el1, x8
 
-	/* Initialize TCR_EL1 */
+	/* Initialize TCR_EL1 (translation control register)*/
 	/* set cacheable attributes on translation walk */
 	/* (SMP extensions) non-shareable, inner write-back write-allocate */
 	ldr  	x8, =MMU_TCR_FLAGS1 | MMU_TCR_FLAGS0 | MMU_TCR_IPS | MMU_TCR_AS
@@ -257,6 +263,7 @@ BEGIN_FUNC(el1_mmu_activate)
 	isb
 
 	/* Write ttbr with phys addr of the translation table */
+	/* ttbr: translation table base register */
 	adrp    x8, boot_ttbr0_l0
 	msr     ttbr0_el1, x8
 	adrp    x8, boot_ttbr1_l0
@@ -267,6 +274,7 @@ BEGIN_FUNC(el1_mmu_activate)
 	/* Enable MMU */
 	/* LAB 1 TODO 4 BEGIN */
 	/* BLANK BEGIN */
+	orr 	x8, x8, #SCTLR_EL1_M
 	/* BLANK END */
 	/* LAB 1 TODO 4 END */
 	/* Disable alignment checking */
