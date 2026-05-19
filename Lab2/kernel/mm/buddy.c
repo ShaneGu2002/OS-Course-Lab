@@ -10,6 +10,7 @@
  * Mulan PSL v2 for more details.
  */
 
+#include "common/list.h"
 #include <common/util.h>
 #include <common/macro.h>
 #include <common/kprint.h>
@@ -166,8 +167,13 @@ void buddy_free_pages(struct phys_mem_pool *pool, struct page *page)
          * a suitable free list.
          */
         /* BLANK BEGIN */
-        UNUSED(free_list);
-        UNUSED(order);
+        page->allocated = 1;
+        page = merge_chunk(pool, page);
+
+        order = page->order;
+        free_list = &(pool->free_lists[order].free_list);
+        list_add(&page->node, free_list);
+        pool->free_lists[order].nr_free += 1;
         /* BLANK END */
         /* LAB 2 TODO 1 END */
 
