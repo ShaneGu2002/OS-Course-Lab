@@ -11,6 +11,7 @@
  */
 
 #include "common/list.h"
+#include "common/types.h"
 #include <common/util.h>
 #include <common/macro.h>
 #include <common/kprint.h>
@@ -72,8 +73,40 @@ __maybe_unused static struct page * merge_chunk(struct phys_mem_pool *__maybe_un
          * if possible.
          */
         /* BLANK BEGIN */
-        return NULL;
+        struct page *buddy_chunk;
 
+        // the current chunk is already the largest chunk
+        if (chunk->order == (BUDDY_MAX_ORDER - 1)){
+                return chunk;
+        }
+        
+        // get buddy chunk
+        buddy_chunk = get_buddy_chunk(pool, chunk);
+        // don't have buddy chunk
+        if (buddy_chunk == NULL) {
+                return chunk;
+        }
+        // buddy chunk occupied
+        if (buddy_chunk->allocated == 1) {
+                return chunk;
+        }
+        // chunk order doesn't match
+        if (buddy_chunk->order != chunk->order) {
+                return chunk;
+        }
+
+        // delete chunk in previous list and add it into new list
+        list_del(&(buddy_chunk->node));
+        pool->free_lists[buddy_chunk->order].nr_free -= 1;
+
+        chunk->order += 1;
+        buddy_chunk->order += 1;
+        // adjust the pointer to merged chunk
+        if (chunk > buddy_chunk) {
+                chunk = buddy_chunk;
+        }
+
+        return merge_chunk(pool, chunk);
         /* BLANK END */
         /* LAB 2 TODO 1 END */
 }
