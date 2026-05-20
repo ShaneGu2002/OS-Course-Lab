@@ -56,7 +56,32 @@ __maybe_unused static struct page *split_chunk(struct phys_mem_pool *__maybe_unu
          * a suitable free list.
          */
         /* BLANK BEGIN */
-        return NULL;
+
+        struct page *buddy_chunk;
+        
+        // check the value of chunk order and imput order
+        // if the order is bigger, split chunk and recurse
+        
+        // same order, can't split/split successfully
+        if (order == chunk->order) {
+                return chunk;
+        }
+
+        // change the order of current chunk and add it into corresponding free list
+        chunk->order -= 1;
+        buddy_chunk = get_buddy_chunk(pool, chunk);
+
+        if (buddy_chunk == NULL) {
+                BUG("buddy_chunk must exist");
+                return NULL;
+        }
+
+        buddy_chunk->order = chunk->order;
+        buddy_chunk->allocated = 0;
+        list_add(&(buddy_chunk->node), &(pool->free_lists[chunk->order].free_list));
+        pool->free_lists[chunk->order].nr_free += 1;
+
+        return split_chunk(pool, order, chunk);
 
         /* BLANK END */
         /* LAB 2 TODO 1 END */
