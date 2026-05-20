@@ -203,8 +203,26 @@ struct page *buddy_get_pages(struct phys_mem_pool *pool, int order)
          * in the free lists, then split it if necessary.
          */
         /* BLANK BEGIN */
-        UNUSED(cur_order);
-        UNUSED(free_list);
+
+        // check whether there exist suitable chunk in freelist and split it into suitable size
+        for (cur_order = order; cur_order <= BUDDY_MAX_ORDER; ++cur_order) {
+                free_list = &(pool->free_lists[cur_order].free_list);
+                if (!list_empty(free_list)){
+                        page = list_entry(free_list->next, struct page, node);
+                        list_del(&(page->node));
+                        pool->free_lists[cur_order].nr_free -= 1;
+                        page->allocated = 1;
+                        break;
+                }
+        }
+
+        // report there's no suitable page
+        if (unlikely(page == NULL)) {
+                kdebug("[OOM] No enough memory in memory pool %p\n", pool);
+                goto out;
+        }
+
+        page = split_chunk(pool, order, page);
 
         /* BLANK END */
         /* LAB 2 TODO 1 END */
