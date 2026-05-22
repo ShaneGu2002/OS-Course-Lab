@@ -10,6 +10,7 @@
  * See the Mulan PSL v2 for more details.
  */
 
+#include "common/list.h"
 #include <common/macro.h>
 #include <common/types.h>
 #include <common/kprint.h>
@@ -139,7 +140,17 @@ static void choose_new_current_slab(struct slab_pointer * __maybe_unused pool)
         /* LAB 2 TODO 2 BEGIN */
         /* Hint: Choose a partial slab to be a new current slab. */
         /* BLANK BEGIN */
+        struct list_head *list;
+        list = (&(pool->partial_slab_list));
 
+        // if the pool doesn't have other partial slab, set current slab list to NULL
+        // else switch current slab to next free slab in partial slab list
+        if (list_empty(list)) {
+                pool->current_slab = NULL;
+        } else {
+                pool->current_slab = (struct slab_header *)list_entry(list->next, struct slab_header, node);
+                list_del(list->next);
+        }
         /* BLANK END */
         /* LAB 2 TODO 2 END */
 }
