@@ -181,6 +181,20 @@ static void *alloc_in_slab_impl(int order)
          * If current slab is full, choose a new slab as the current one.
          */
         /* BLANK BEGIN */
+        // get the address of first free slot
+        free_list = (struct slab_slot_list *)current_slab->free_list_head;
+        BUG_ON(free_list == NULL);
+
+        // set free list head to next slot
+        next_slot = free_list->next_free;
+        current_slab->free_list_head = next_slot;
+
+        current_slab->current_free_cnt -= 1;
+        if (current_slab->current_free_cnt == 0) {
+                choose_new_current_slab(&slab_pool[order]);
+        }
+
+
 
         /* BLANK END */
         /* LAB 2 TODO 2 END */
