@@ -193,9 +193,6 @@ static void *alloc_in_slab_impl(int order)
         if (current_slab->current_free_cnt == 0) {
                 choose_new_current_slab(&slab_pool[order]);
         }
-
-
-
         /* BLANK END */
         /* LAB 2 TODO 2 END */
 
@@ -322,8 +319,9 @@ void free_in_slab(void *addr)
          * Hint: Free an allocated slot and put it back to the free list.
          */
         /* BLANK BEGIN */
-
-        UNUSED(slot);
+        slot->next_free = slab->free_list_head;
+        slab->free_list_head = slot;
+        slab->current_free_cnt += 1;
         /* BLANK END */
         /* LAB 2 TODO 2 END */
 
