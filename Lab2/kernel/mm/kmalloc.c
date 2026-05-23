@@ -132,8 +132,8 @@ void *_kmalloc(size_t size, bool is_record, size_t *real_size)
                         order = 0;
                 } else {
                         order = size_to_page_order(size);
-                        addr = get_pages(order);
                 }
+                addr = get_pages(order);
                 /* BLANK END */
                 /* LAB 2 TODO 3 END */
         }

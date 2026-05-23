@@ -205,7 +205,7 @@ struct page *buddy_get_pages(struct phys_mem_pool *pool, int order)
         /* BLANK BEGIN */
 
         // check whether there exist suitable chunk in freelist and split it into suitable size
-        for (cur_order = order; cur_order <= BUDDY_MAX_ORDER; ++cur_order) {
+        for (cur_order = order; cur_order < BUDDY_MAX_ORDER; ++cur_order) {
                 free_list = &(pool->free_lists[cur_order].free_list);
                 if (!list_empty(free_list)){
                         page = list_entry(free_list->next, struct page, node);
@@ -243,7 +243,7 @@ void buddy_free_pages(struct phys_mem_pool *pool, struct page *page)
          * a suitable free list.
          */
         /* BLANK BEGIN */
-        page->allocated = 1;
+        page->allocated = 0;
         page = merge_chunk(pool, page);
 
         order = page->order;
