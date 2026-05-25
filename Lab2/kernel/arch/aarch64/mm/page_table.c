@@ -10,6 +10,7 @@
  * See the Mulan PSL v2 for more details.
  */
 
+#include "mm/buddy.h"
 #ifdef CHCORE
 #include <common/util.h>
 #include <mm/kmalloc.h>
@@ -300,7 +301,53 @@ int query_in_pgtbl(void *pgtbl, vaddr_t va, paddr_t *pa, pte_t **entry)
          * `-ENOMAPPING` if the va is not mapped.
          */
         /* BLANK BEGIN */
+        ptp_t *l0_ptp, *l1_ptp, *l2_ptp, *l3_ptp;
+        pte_t *pte;
+        ptp_t *phys_page;
+        int ret;
 
+        l0_ptp = pgtbl;
+        l1_ptp = NULL;
+        l2_ptp = NULL;
+        l3_ptp = NULL;
+
+        // l0
+        ret = get_next_ptp(l0_ptp, L0, va, &l1_ptp, &pte, false, NULL);
+        // get_next_ptp may return -ENOMAPPING if va us not mapped
+        if (ret < 0)
+                return ret;
+
+        // l1
+        ret = get_next_ptp(l1_ptp, L1, va, &l2_ptp, &pte, false, NULL);
+        if (ret < 0) 
+                return ret;
+        // l1 entry may be a 1GB block mapping
+        else if (ret == BLOCK_PTP) {
+                *pa = virt_to_phys((vaddr_t)l2_ptp) + GET_VA_OFFSET_L1(va);
+                if (entry)
+                        *entry = pte;
+        }
+
+        // l2
+        ret = get_next_ptp(l2_ptp, L2, va, &l3_ptp, &pte, false, NULL);
+        if (ret < 0)
+                return ret;
+                
+        else if (ret == BLOCK_PTP) {
+                *pa = virt_to_phys((vaddr_t)l3_ptp) + GET_VA_OFFSET_L2(va);
+                if (entry)
+                        *entry = pte;
+        }
+
+        // l3
+        ret = get_next_ptp(l3_ptp, L3, va, &phys_page, &pte, false, NULL);
+        if (ret < 0)
+                return ret;
+
+        *pa = virt_to_phys(phys_page) + GET_VA_OFFSET_L3(va);
+        if (entry)
+                *entry = pte;
+        
         /* BLANK END */
         /* LAB 2 TODO 4 END */
         return 0;
