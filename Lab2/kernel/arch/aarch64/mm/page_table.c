@@ -499,7 +499,78 @@ int unmap_range_in_pgtbl(void *pgtbl, vaddr_t va, size_t len,
          * Return 0 on success.
          */
         /* BLANK BEGIN */
+        s64 unmap_page_cnt;
+        s64 left_page_cnt_in_current_level;
+        ptp_t *l0_ptp, *l1_ptp, *l2_ptp, *l3_ptp;
+        pte_t *pte;
+        vaddr_t old_va;
 
+        int ret;
+        int pte_index;  // index of pte in last level page table
+        int i;
+
+        BUG_ON(pgtbl == NULL); // allocate root page table first
+
+        unmap_page_cnt = len / PAGE_SIZE + ((len % PAGE_SIZE > 0) ? 1: 0);
+
+        l0_ptp = (ptp_t *)pgtbl;
+
+        l1_ptp = NULL;
+        l2_ptp = NULL;
+        l3_ptp = NULL;
+
+        while (unmap_page_cnt > 0) {
+                // set old va for recycle_pgtable_entry
+                old_va = va;
+
+                // l0
+                ret = get_next_ptp(l0_ptp, L0, va, &l1_ptp, &pte, false, NULL);
+                // if ptp is not mappped, need to minus the pages left in this L0_pte
+                if (ret == -ENOMAPPING) {
+                        // GET_L1_INDEX(va) * L1_PER_ENTRY_PAGES) indicates pages which need to be unmap in this L0_pte according to va
+                        left_page_cnt_in_current_level = (L0_PER_ENTRY_PAGES -  GET_L1_INDEX(va) * L1_PER_ENTRY_PAGES);
+                        unmap_page_cnt -= (left_page_cnt_in_current_level > unmap_page_cnt) ? unmap_page_cnt : left_page_cnt_in_current_level;
+                        va += left_page_cnt_in_current_level * PAGE_SIZE;
+                        continue;
+                }
+
+                // l1
+                ret = get_next_ptp(l1_ptp, L1, va, &l2_ptp, &pte, false, NULL);
+                if (ret == -ENOMAPPING) {
+                        left_page_cnt_in_current_level = (L1_PER_ENTRY_PAGES -  GET_L2_INDEX(va) * L2_PER_ENTRY_PAGES);
+                        unmap_page_cnt -= (left_page_cnt_in_current_level > unmap_page_cnt) ? unmap_page_cnt : left_page_cnt_in_current_level;
+                        va += left_page_cnt_in_current_level * PAGE_SIZE;
+                        continue;
+                }
+
+                // l2
+                ret = get_next_ptp(l2_ptp, L2, va, &l3_ptp, &pte, false, NULL);
+                if (ret == -ENOMAPPING) {
+                        left_page_cnt_in_current_level = (L2_PER_ENTRY_PAGES -  GET_L3_INDEX(va) * L3_PER_ENTRY_PAGES);
+                        unmap_page_cnt -= (left_page_cnt_in_current_level > unmap_page_cnt) ? unmap_page_cnt : left_page_cnt_in_current_level;
+                        va += left_page_cnt_in_current_level * PAGE_SIZE;
+                        continue;
+                }
+
+                // l3
+                pte_index = GET_L3_INDEX(va);
+                for (i = pte_index; i < PTP_ENTRIES; ++i) {
+                        // count Resident Set Size
+                        if (l3_ptp->ent[i].l3_page.is_valid && rss) {
+                                rss -= PAGE_SIZE;
+                        }
+
+                        // unmap l3 pte, update va, unmap_page_cnt
+                        l3_ptp->ent[i].pte = PTE_DESCRIPTOR_INVALID;
+                        va += PAGE_SIZE;
+                        unmap_page_cnt -= 1;
+                        if (unmap_page_cnt == 0) {
+                                break;
+                        }
+                }
+                // release invalid pages/entry
+                recycle_pgtable_entry(l0_ptp, l1_ptp, l2_ptp, l3_ptp, old_va, rss);
+        }
         /* BLANK END */
         /* LAB 2 TODO 4 END */
 
