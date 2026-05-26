@@ -406,6 +406,7 @@ static int map_range_in_pgtbl_common(void *pgtbl, vaddr_t va, paddr_t pa,
                         new_pte_val.pte = 0;
                         new_pte_val.l3_page.is_valid = 1;
                         new_pte_val.l3_page.is_page = 1;
+                        // set Page Frame Number
                         new_pte_val.l3_page.pfn = pa >> PAGE_SHIFT;
                         set_pte_flags(&new_pte_val, flags, kind);
                         l3_ptp->ent[i].pte = new_pte_val.pte;
@@ -512,9 +513,7 @@ int unmap_range_in_pgtbl(void *pgtbl, vaddr_t va, size_t len,
         BUG_ON(pgtbl == NULL); // allocate root page table first
 
         unmap_page_cnt = len / PAGE_SIZE + ((len % PAGE_SIZE > 0) ? 1: 0);
-
         l0_ptp = (ptp_t *)pgtbl;
-
         l1_ptp = NULL;
         l2_ptp = NULL;
         l3_ptp = NULL;
@@ -557,7 +556,7 @@ int unmap_range_in_pgtbl(void *pgtbl, vaddr_t va, size_t len,
                 for (i = pte_index; i < PTP_ENTRIES; ++i) {
                         // count Resident Set Size
                         if (l3_ptp->ent[i].l3_page.is_valid && rss) {
-                                rss -= PAGE_SIZE;
+                                *rss -= PAGE_SIZE;
                         }
 
                         // unmap l3 pte, update va, unmap_page_cnt
@@ -590,7 +589,68 @@ int mprotect_in_pgtbl(void *pgtbl, vaddr_t va, size_t len, vmr_prop_t flags)
          * Return 0 on success.
          */
         /* BLANK BEGIN */
+        s64 mprotect_page_cnt;
+        s64 left_page_cnt_in_current_level;
+        ptp_t *l0_ptp, *l1_ptp, *l2_ptp, *l3_ptp;
+        pte_t *pte;
 
+        int ret;
+        int pte_index; // index of pte in last level page table
+        int i;
+
+        BUG_ON(pgtbl == NULL); // allocate root page table first
+        BUG_ON(va % PAGE_SIZE); // align page table
+
+        mprotect_page_cnt = len / PAGE_SIZE + (len % PAGE_SIZE) ? 1 : 0;
+        l0_ptp = (ptp_t *)pgtbl;
+        l1_ptp = NULL;
+        l2_ptp = NULL;
+        l3_ptp = NULL;
+
+        while (mprotect_page_cnt > 0) {
+                // l0
+                ret = get_next_ptp(l0_ptp, L0, va, &l1_ptp, &pte, false, NULL);
+                // if ptp is not mappped, need to minus the pages left in this L0_pte
+                if (ret == -ENOMAPPING) {
+                        // GET_L1_INDEX(va) * L1_PER_ENTRY_PAGES) indicates pages which need to be unmap in this L0_pte according to va
+                        left_page_cnt_in_current_level = (L0_PER_ENTRY_PAGES -  GET_L1_INDEX(va) * L1_PER_ENTRY_PAGES);
+                        mprotect_page_cnt -= (left_page_cnt_in_current_level > unmap_page_cnt) ? unmap_page_cnt : left_page_cnt_in_current_level;
+                        va += left_page_cnt_in_current_level * PAGE_SIZE;
+                        continue;
+                }
+
+                // l1
+                ret = get_next_ptp(l1_ptp, L1, va, &l2_ptp, &pte, false, NULL);
+                if (ret == -ENOMAPPING) {
+                        left_page_cnt_in_current_level = (L1_PER_ENTRY_PAGES -  GET_L2_INDEX(va) * L2_PER_ENTRY_PAGES);
+                        mprotect_page_cnt -= (left_page_cnt_in_current_level > unmap_page_cnt) ? unmap_page_cnt : left_page_cnt_in_current_level;
+                        va += left_page_cnt_in_current_level * PAGE_SIZE;
+                        continue;
+                }
+
+                // l2
+                ret = get_next_ptp(l2_ptp, L2, va, &l3_ptp, &pte, false, NULL);
+                if (ret == -ENOMAPPING) {
+                        left_page_cnt_in_current_level = (L2_PER_ENTRY_PAGES -  GET_L3_INDEX(va) * L3_PER_ENTRY_PAGES);
+                        mprotect_page_cnt -= (left_page_cnt_in_current_level > unmap_page_cnt) ? unmap_page_cnt : left_page_cnt_in_current_level;
+                        va += left_page_cnt_in_current_level * PAGE_SIZE;
+                        continue;
+                }
+
+                // l3
+                pte_index = GET_L3_INDEX(va);
+                for (i = pte_index; i < PTP_ENTRIES; ++i) {
+                        // input entry in l3_page to set_pte_flags
+                        if (!IS_PTE_INVALID(l3_ptp->ent[i].pte))
+                                set_pte_flags(&(l3_ptp->ent[i]), flags, USER_PTE);
+                        
+                        va += PAGE_SIZE;
+                        mprotect_page_cnt -= 1;
+                        if (mprotect_page_cnt == 0) {
+                                break;
+                        }
+                }
+        }
         /* BLANK END */
         /* LAB 2 TODO 4 END */
         return 0;
