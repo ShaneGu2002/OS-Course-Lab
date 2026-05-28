@@ -10,6 +10,11 @@
  * Mulan PSL v2 for more details.
  */
 
+#include "arch/mmu.h"
+#include "common/lock.h"
+#include "common/macro.h"
+#include "common/types.h"
+#include "mm/buddy.h"
 #include <arch/mm/page_table.h>
 #include <mm/cache.h>
 #include <common/backtrace.h>
@@ -209,7 +214,18 @@ int handle_trans_fault(struct vmspace *vmspace, vaddr_t fault_addr)
                         /* LAB 2 TODO 7 BEGIN */
                         /* BLANK BEGIN */
                         /* Hint: Allocate a physical page and clear it to 0. */
+                        void *new_va = get_pages(0);
+                        long rss = 0;
 
+                        if (new_va == NULL) {
+                                unlock(&vmspace->vmspace_lock);
+                                return -ENOMEM;
+                        }
+                        // clear new page to 0
+                        memset(new_va, 0, PAGE_SIZE);
+                        pa = virt_to_phys(new_va);
+                        BUG_ON(pa == 0);
+                        
                         /* BLANK END */
                         /*
                          * Record the physical page in the radix tree:
@@ -221,7 +237,8 @@ int handle_trans_fault(struct vmspace *vmspace, vaddr_t fault_addr)
                         /* Add mapping in the page table */
                         lock(&vmspace->pgtbl_lock);
                         /* BLANK BEGIN */
-
+                        map_range_in_pgtbl(vmspace->pgtbl, fault_addr, pa, PAGE_SIZE, perm, &rss);
+                        rss += vmspace->rss;
                         /* BLANK END */
                         unlock(&vmspace->pgtbl_lock);
                 } else {
@@ -248,9 +265,11 @@ int handle_trans_fault(struct vmspace *vmspace, vaddr_t fault_addr)
                          */
                         if (pmo->type == PMO_SHM || pmo->type == PMO_ANONYM) {
                                 /* Add mapping in the page table */
+                                long rss = 0;
                                 lock(&vmspace->pgtbl_lock);
                                 /* BLANK BEGIN */
-
+                                map_range_in_pgtbl(vmspace->pgtbl, fault_addr, pa, PAGE_SIZE, perm, &rss);
+                                rss += vmspace->rss;
                                 /* BLANK END */
                                 /* LAB 2 TODO 7 END */
                                 unlock(&vmspace->pgtbl_lock);
