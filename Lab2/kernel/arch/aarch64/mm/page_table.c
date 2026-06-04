@@ -614,7 +614,7 @@ int mprotect_in_pgtbl(void *pgtbl, vaddr_t va, size_t len, vmr_prop_t flags)
                 if (ret == -ENOMAPPING) {
                         // GET_L1_INDEX(va) * L1_PER_ENTRY_PAGES) indicates pages which need to be unmap in this L0_pte according to va
                         left_page_cnt_in_current_level = (L0_PER_ENTRY_PAGES -  GET_L1_INDEX(va) * L1_PER_ENTRY_PAGES);
-                        mprotect_page_cnt -= (left_page_cnt_in_current_level > unmap_page_cnt) ? unmap_page_cnt : left_page_cnt_in_current_level;
+                        mprotect_page_cnt -= (left_page_cnt_in_current_level > mprotect_page_cnt) ? mprotect_page_cnt : left_page_cnt_in_current_level;
                         va += left_page_cnt_in_current_level * PAGE_SIZE;
                         continue;
                 }
@@ -623,7 +623,7 @@ int mprotect_in_pgtbl(void *pgtbl, vaddr_t va, size_t len, vmr_prop_t flags)
                 ret = get_next_ptp(l1_ptp, L1, va, &l2_ptp, &pte, false, NULL);
                 if (ret == -ENOMAPPING) {
                         left_page_cnt_in_current_level = (L1_PER_ENTRY_PAGES -  GET_L2_INDEX(va) * L2_PER_ENTRY_PAGES);
-                        mprotect_page_cnt -= (left_page_cnt_in_current_level > unmap_page_cnt) ? unmap_page_cnt : left_page_cnt_in_current_level;
+                        mprotect_page_cnt -= (left_page_cnt_in_current_level > mprotect_page_cnt) ? mprotect_page_cnt : left_page_cnt_in_current_level;
                         va += left_page_cnt_in_current_level * PAGE_SIZE;
                         continue;
                 }
@@ -632,7 +632,7 @@ int mprotect_in_pgtbl(void *pgtbl, vaddr_t va, size_t len, vmr_prop_t flags)
                 ret = get_next_ptp(l2_ptp, L2, va, &l3_ptp, &pte, false, NULL);
                 if (ret == -ENOMAPPING) {
                         left_page_cnt_in_current_level = (L2_PER_ENTRY_PAGES -  GET_L3_INDEX(va) * L3_PER_ENTRY_PAGES);
-                        mprotect_page_cnt -= (left_page_cnt_in_current_level > unmap_page_cnt) ? unmap_page_cnt : left_page_cnt_in_current_level;
+                        mprotect_page_cnt -= (left_page_cnt_in_current_level > mprotect_page_cnt) ? mprotect_page_cnt : left_page_cnt_in_current_level;
                         va += left_page_cnt_in_current_level * PAGE_SIZE;
                         continue;
                 }
