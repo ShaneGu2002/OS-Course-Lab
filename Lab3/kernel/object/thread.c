@@ -228,30 +228,68 @@ void create_root_thread(void)
 
                 /* LAB 3 TODO BEGIN */
                 /* Get offset, vaddr, filesz, memsz from image*/
-                UNUSED(flags);
-                UNUSED(filesz);
-                UNUSED(offset);
-                UNUSED(memsz);
+                memcpy(data,
+                       (void *)((unsigned long)&binary_procmgr_bin_start
+                                + ROOT_PHDR_OFF + i * ROOT_PHENT_SIZE
+                                + PHDR_FILESZ_OFF),
+                       sizeof(data));
+                filesz = (unsigned int)le32_to_cpu(*(u32 *)data);
+
+                memcpy(data,
+                       (void *)((unsigned long)&binary_procmgr_bin_start
+                                + ROOT_PHDR_OFF + i * ROOT_PHENT_SIZE
+                                + PHDR_VADDR_OFF),
+                       sizeof(data));
+                vaddr = (unsigned int)le32_to_cpu(*(u32 *)data);
+                
+                memcpy(data,
+                       (void *)((unsigned long)&binary_procmgr_bin_start
+                                + ROOT_PHDR_OFF + i * ROOT_PHENT_SIZE
+                                + PHDR_OFFSET_OFF),
+                       sizeof(data));
+                offset = (unsigned int)le32_to_cpu(*(u32 *)data);
+
+                memcpy(data,
+                       (void *)((unsigned long)&binary_procmgr_bin_start
+                                + ROOT_PHDR_OFF + i * ROOT_PHENT_SIZE
+                                + PHDR_MEMSZ_OFF),
+                       sizeof(data));
+                memsz = (unsigned int)le32_to_cpu(*(u32 *)data);
 
                 /* LAB 3 TODO END */
 
                 struct pmobject *segment_pmo = NULL;
                 /* LAB 3 TODO BEGIN */
-                UNUSED(segment_pmo);
-
+                size_t pmo_size = ROUND_UP(memsz, PAGE_SIZE);
+                ret = create_pmo(pmo_size,
+                                PMO_DATA,
+                                root_cap_group,
+                                0,
+                                &segment_pmo,
+                                PMO_ALL_RIGHTS);
                 /* LAB 3 TODO END */
 
                 BUG_ON(ret < 0);
 
                 /* LAB 3 TODO BEGIN */
                 /* Copy elf file contents into memory*/
-
+                memset((void *)phys_to_virt(segment_pmo->start),
+                       0,
+                       segment_pmo->size);
+                memcpy((void *)phys_to_virt(segment_pmo->start),
+                       (void *)(((unsigned long)&binary_procmgr_bin_start) + offset),
+                        filesz);
                 /* LAB 3 TODO END */
 
                 unsigned vmr_flags = 0;
                 /* LAB 3 TODO BEGIN */
                 /* Set flags*/
-
+                if (flags & PHDR_FLAGS_R)
+                        vmr_flags |= VMR_READ;
+                if (flags & PHDR_FLAGS_W)
+                        vmr_flags |= VMR_WRITE;
+                if (flags & PHDR_FLAGS_X)
+                        vmr_flags |= VMR_EXEC;
                 /* LAB 3 TODO END */
 
                 ret = vmspace_map_range(init_vmspace,
@@ -275,7 +313,7 @@ void create_root_thread(void)
         prepare_env((char *)kva, stack, ROOT_NAME, &meta);
         stack -= ENV_SIZE_ON_STACK;
 
-        ret = thread_init(thread,
+        ret = (thread,
                           root_cap_group,
                           stack,
                           meta.entry,
