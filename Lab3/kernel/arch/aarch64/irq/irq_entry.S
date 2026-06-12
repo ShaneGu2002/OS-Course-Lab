@@ -34,7 +34,7 @@
 .macro	exception_enter
 
 	/* LAB 3 TODO BEGIN */
-
+	
 	/* LAB 3 TODO END */
 
 	mrs	x21, sp_el0
