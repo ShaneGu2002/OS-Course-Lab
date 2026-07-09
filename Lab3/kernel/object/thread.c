@@ -313,7 +313,7 @@ void create_root_thread(void)
         prepare_env((char *)kva, stack, ROOT_NAME, &meta);
         stack -= ENV_SIZE_ON_STACK;
 
-        ret = (thread,
+        ret = thread_init(thread,
                           root_cap_group,
                           stack,
                           meta.entry,
